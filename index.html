@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pembukuan Ekspedisi</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            .print-border {
+                border: 1px solid #e2e8f0 !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 font-sans antialiased bg-slate-50">
+
+    <div class="min-h-full flex flex-col">
+        <!-- HEADER -->
+        <header class="bg-indigo-700 text-white shadow-md no-print">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-indigo-600 p-2.5 rounded-xl shadow-inner">
+                        <i class="fa-solid fa-truck-fast text-2xl text-amber-300"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Sistem Pembukuan & Ringkasan Bulanan Ekspedisi</h1>
+                        <p class="text-xs text-indigo-200">Pencatatan Operasional, Komisi & Pengeluaran Real-Time</p>
+                    </div>
+                </div>
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="window.print()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-print"></i> Cetak Laporan
+                    </button>
+                    <button onclick="exportCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5" title="Export Semua Transaksi Keseluruhan">
+                        <i class="fa-solid fa-file-excel"></i> Export Semua CSV
+                    </button>
+                    <button onclick="exportJSON()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> Backup JSON
+                    </button>
+                    <label class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-upload"></i> Import JSON
+                        <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                    </label>
+                    <button onclick="resetData()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5" title="Kosongkan Semua Data">
+                        <i class="fa-solid fa-trash-can"></i> Reset Data
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTAINER -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+            <!-- DASHBOARD RINGKASAN OPERASIONAL ATAS -->
+            <section class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 print-border">
+                <div class="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
+                    <h2 class="text-lg font-semibold flex items-center gap-2 text-indigo-300">
+                        <i class="fa-solid fa-chart-pie"></i> Ringkasan Total Operasional
+                    </h2>
+                    <span class="text-xs font-medium px-3 py-1 bg-indigo-900/80 text-indigo-200 border border-indigo-700/50 rounded-full">
+                        Akumulasi Keseluruhan
+                    </span>
+                </div>
+
+                <!-- 5 Metrics Cards Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- 1. Total Ongkir Kotor -->
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Ongkir Kotor</p>
+                            <p id="sum-ongkir" class="text-xl font-bold text-slate-100">Rp 0</p>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-700/50 flex justify-between text-xs text-slate-300">
+                            <span>Cash: <strong id="sum-ongkir-cash" class="text-amber-400">Rp 0</strong></span>
+                            <span>Dana: <strong id="sum-ongkir-dana" class="text-sky-400">Rp 0</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Total Komisi -->
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Komisi (5%)</p>
+                            <p id="sum-komisi" class="text-xl font-bold text-amber-400">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-2">Potongan komisi kantor 5%</p>
+                    </div>
+
+                    <!-- 3. Ongkir Setelah Komisi -->
+                    <div class="bg-slate-800/90 rounded-xl p-4 border border-emerald-500/40 backdrop-blur-sm flex flex-col justify-between shadow-lg shadow-emerald-950/20">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-xs uppercase tracking-wider text-emerald-400 font-bold">Ongkir Setelah Komisi</p>
+                                <span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-semibold">Net Ongkir</span>
+                            </div>
+                            <p id="sum-net-ongkir" class="text-xl sm:text-2xl font-black text-emerald-400">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-emerald-200/80 mt-2 border-t border-slate-700/60 pt-1.5">
+                            Ongkir Kotor dikurangi Komisi 5%
+                        </p>
+                    </div>
+
+                    <!-- 4. Total Pengeluaran -->
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 backdrop-blur-sm flex flex-col justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Pengeluaran</p>
+                            <p id="sum-pengeluaran" class="text-xl font-bold text-rose-400">Rp 0</p>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-700/50 flex justify-between text-xs text-slate-300">
+                            <span>Cash: <strong id="sum-keluar-cash" class="text-amber-400">Rp 0</strong></span>
+                            <span>Dana: <strong id="sum-keluar-dana" class="text-sky-400">Rp 0</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- 5. Hasil Bersih Akhir -->
+                    <div class="bg-indigo-900/60 rounded-xl p-4 border border-indigo-500/50 backdrop-blur-sm flex flex-col justify-between sm:col-span-2 lg:col-span-1">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-indigo-300 font-bold mb-1">Hasil Bersih Akhir</p>
+                            <p id="sum-akhir" class="text-xl sm:text-2xl font-black text-emerald-300">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-indigo-200/80 mt-2 border-t border-indigo-800/80 pt-1.5">
+                            Ongkir Setelah Komisi dikurangi Pengeluaran
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FORM & TABLES GRID -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- SECTION PEMASUKAN -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col print-border">
+                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between">
+                        <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-wallet text-emerald-600"></i> Data Pemasukan
+                        </h2>
+                        <span id="pemasukan-count" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Data</span>
+                    </div>
+
+                    <!-- Form Pemasukan -->
+                    <form id="form-pemasukan" onsubmit="tambahPemasukan(event)" class="p-4 space-y-3 border-b border-slate-100 bg-slate-50/50 no-print">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
+                                <input type="date" id="in-tanggal" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">No. Resi</label>
+                                <input type="text" id="in-resi" placeholder="Contoh: JX8849101" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Pengirim</label>
+                                <input type="text" id="in-pengirim" placeholder="Pengirim" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Penerima</label>
+                                <input type="text" id="in-penerima" placeholder="Penerima" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Kota Tujuan</label>
+                                <input type="text" id="in-tujuan" placeholder="Kota Tujuan" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Metode Pembayaran</label>
+                                <select id="in-metode" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <option value="Cash">Cash</option>
+                                    <option value="Dana">Dana</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Biaya Ongkir (Rp)</label>
+                            <input type="number" id="in-ongkir" min="0" placeholder="0" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs">
+                            <i class="fa-solid fa-plus"></i> Tambah Pemasukan
+                        </button>
+                    </form>
+
+                    <!-- Tabel Pemasukan -->
+                    <div class="p-3 flex-1 overflow-x-auto custom-scrollbar max-h-96">
+                        <table id="tabel-pemasukan" class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 font-semibold uppercase text-[10px] tracking-wider sticky top-0 bg-slate-100">
+                                <tr>
+                                    <th class="p-2 rounded-l-md">Tanggal</th>
+                                    <th class="p-2">Resi</th>
+                                    <th class="p-2">Pengiriman</th>
+                                    <th class="p-2">Ongkir</th>
+                                    <th class="p-2">Komisi (5%)</th>
+                                    <th class="p-2 text-center rounded-r-md no-print">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <!-- Dynamic Content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SECTION PENGELUARAN -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col print-border">
+                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between">
+                        <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-receipt text-rose-600"></i> Data Pengeluaran
+                        </h2>
+                        <span id="pengeluaran-count" class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Data</span>
+                    </div>
+
+                    <!-- Form Pengeluaran -->
+                    <form id="form-pengeluaran" onsubmit="tambahPengeluaran(event)" class="p-4 space-y-3 border-b border-slate-100 bg-slate-50/50 no-print">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
+                                <input type="date" id="out-tanggal" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Metode Pembayaran</label>
+                                <select id="out-metode" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                    <option value="Cash">Cash</option>
+                                    <option value="Dana">Dana</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan Pengeluaran</label>
+                            <input type="text" id="out-keterangan" placeholder="Contoh: Lakban / Plastik Wrap / Bensin Operasional" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Total Pengeluaran (Rp)</label>
+                            <input type="number" id="out-total" min="0" placeholder="0" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                        </div>
+
+                        <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs">
+                            <i class="fa-solid fa-plus"></i> Tambah Pengeluaran
+                        </button>
+                    </form>
+
+                    <!-- Tabel Pengeluaran -->
+                    <div class="p-3 flex-1 overflow-x-auto custom-scrollbar max-h-96">
+                        <table id="tabel-pengeluaran" class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 font-semibold uppercase text-[10px] tracking-wider sticky top-0 bg-slate-100">
+                                <tr>
+                                    <th class="p-2 rounded-l-md">Tanggal</th>
+                                    <th class="p-2">Keterangan</th>
+                                    <th class="p-2">Metode</th>
+                                    <th class="p-2">Total</th>
+                                    <th class="p-2 text-center rounded-r-md no-print">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <!-- Dynamic Content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- LAPORAN AKHIR BULANAN (REKAPITULASI PER BULAN) -->
+            <section class="bg-white rounded-2xl p-6 shadow-md border-2 border-indigo-100 print-border space-y-6">
+                <!-- Header Laporan Bulanan -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 pb-4 gap-3">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-check text-indigo-600"></i> Laporan Akhir Per Bulan
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">Rekapitulasi otomatis per bulan dari data Ongkir Setelah Komisi, Komisi, dan Pengeluaran.</p>
+                    </div>
+
+                    <!-- Selector Pilih Bulan Spesifik & Export CSV Button -->
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto no-print">
+                        <div class="flex items-center gap-2 bg-indigo-50/80 p-2 rounded-xl border border-indigo-100 w-full sm:w-auto">
+                            <label for="select-report-month" class="text-xs font-semibold text-indigo-900 whitespace-nowrap">
+                                Pilih Bulan:
+                            </label>
+                            <select id="select-report-month" onchange="changeReportMonth()" class="text-xs font-medium rounded-lg border-indigo-200 border p-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white w-full sm:w-auto">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <button onclick="exportCSVBulanIni()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow transition flex items-center justify-center gap-1.5 w-full sm:w-auto">
+                            <i class="fa-solid fa-file-csv text-sm"></i> Export CSV Bulan Ini
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Highlight Cards Bulan Terpilih -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- 1. Total Pemasukan Bersih Akhir -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-4 border border-indigo-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-indigo-800">Pemasukan Bersih Akhir</span>
+                                <div class="bg-indigo-200/60 p-1.5 rounded-lg text-indigo-700">
+                                    <i class="fa-solid fa-sack-dollar text-base"></i>
+                                </div>
+                            </div>
+                            <p id="rpt-bersih" class="text-2xl font-black text-indigo-600 tracking-tight">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-indigo-700/80 mt-2 border-t border-indigo-200/60 pt-1.5">
+                            Hasil bersih setelah pengeluaran
+                        </p>
+                    </div>
+
+                    <!-- 2. Ongkir Setelah Komisi -->
+                    <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-emerald-800">Ongkir Setelah Komisi</span>
+                                <div class="bg-emerald-200/60 p-1.5 rounded-lg text-emerald-700">
+                                    <i class="fa-solid fa-box-open text-base"></i>
+                                </div>
+                            </div>
+                            <p id="rpt-ongkir-bersih" class="text-2xl font-black text-emerald-600 tracking-tight">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-emerald-700/80 mt-2 border-t border-emerald-200/60 pt-1.5">
+                            Ongkir Kotor dikurangi Komisi 5%
+                        </p>
+                    </div>
+
+                    <!-- 3. Total Komisi -->
+                    <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-800">Total Komisi (5%)</span>
+                                <div class="bg-amber-200/60 p-1.5 rounded-lg text-amber-700">
+                                    <i class="fa-solid fa-percent text-base"></i>
+                                </div>
+                            </div>
+                            <p id="rpt-komisi" class="text-2xl font-black text-amber-600 tracking-tight">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-amber-700/80 mt-2 border-t border-amber-200/60 pt-1.5">
+                            Komisi kantor bulan ini
+                        </p>
+                    </div>
+
+                    <!-- 4. Total Pengeluaran -->
+                    <div class="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4 border border-rose-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold uppercase tracking-wider text-rose-800">Total Pengeluaran</span>
+                                <div class="bg-rose-200/60 p-1.5 rounded-lg text-rose-700">
+                                    <i class="fa-solid fa-arrow-trend-down text-base"></i>
+                                </div>
+                            </div>
+                            <p id="rpt-pengeluaran" class="text-2xl font-black text-rose-600 tracking-tight">Rp 0</p>
+                        </div>
+                        <p class="text-[11px] text-rose-700/80 mt-2 border-t border-rose-200/60 pt-1.5">
+                            Biaya operasional bulan ini
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Historical Table Breakdown Month-by-Month -->
+                <div class="pt-2">
+                    <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-indigo-600"></i> Tabel Rekapitulasi Historis Per Bulan
+                    </h3>
+                    <div class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-xl">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3">Bulan / Periode</th>
+                                    <th class="p-3">Total Ongkir Kotor</th>
+                                    <th class="p-3">Komisi (5%)</th>
+                                    <th class="p-3">Ongkir Setelah Komisi</th>
+                                    <th class="p-3">Pengeluaran</th>
+                                    <th class="p-3">Hasil Bersih Akhir</th>
+                                    <th class="p-3 text-center">Status</th>
+                                    <th class="p-3 text-center no-print">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabel-rekap-bulanan" class="divide-y divide-slate-100">
+                                <!-- Dynamic Monthly Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="bg-white border-t border-slate-200 py-4 mt-auto no-print">
+            <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+                &copy; <span id="year"></span> Aplikasi Pembukuan Bulanan Ekspedisi.
+            </div>
+        </footer>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC (NO DUMMY DATA) -->
+    <script>
+        document.getElementById('year').innerText = new Date().getFullYear();
+
+        // Inisialisasi data murni dari localStorage atau [] kosong jika belum ada
+        let dataPemasukan = JSON.parse(localStorage.getItem('dataPemasukan')) || [];
+        let dataPengeluaran = JSON.parse(localStorage.getItem('dataPengeluaran')) || [];
+
+        let selectedReportMonth = ''; // Menyimpan pilihan bulan laporan aktif YYYY-MM
+
+        function formatRupiah(angka) {
+            return 'Rp ' + parseFloat(angka || 0).toLocaleString('id-ID');
+        }
+
+        function formatBulanIndo(monthKey) {
+            if (!monthKey || !monthKey.includes('-')) return monthKey;
+            const [year, month] = monthKey.split('-');
+            const dateObj = new Date(year, parseInt(month) - 1);
+            return dateObj.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+        }
+
+        function resetDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('in-tanggal').value = today;
+            document.getElementById('out-tanggal').value = today;
+        }
+
+        function simpanKeStorage() {
+            localStorage.setItem('dataPemasukan', JSON.stringify(dataPemasukan));
+            localStorage.setItem('dataPengeluaran', JSON.stringify(dataPengeluaran));
+        }
+
+        function tambahPemasukan(e) {
+            e.preventDefault();
+            const ongkir = parseFloat(document.getElementById('in-ongkir').value);
+            const komisi = ongkir * 0.05;
+
+            const item = {
+                id: Date.now(),
+                tanggal: document.getElementById('in-tanggal').value,
+                resi: document.getElementById('in-resi').value.trim(),
+                pengirim: document.getElementById('in-pengirim').value.trim(),
+                penerima: document.getElementById('in-penerima').value.trim(),
+                tujuan: document.getElementById('in-tujuan').value.trim(),
+                metode: document.getElementById('in-metode').value,
+                ongkir: ongkir,
+                komisi: komisi
+            };
+
+            dataPemasukan.unshift(item);
+            simpanKeStorage();
+            document.getElementById('form-pemasukan').reset();
+            resetDates();
+            perbaruiTampilan();
+        }
+
+        function tambahPengeluaran(e) {
+            e.preventDefault();
+            const item = {
+                id: Date.now(),
+                tanggal: document.getElementById('out-tanggal').value,
+                keterangan: document.getElementById('out-keterangan').value.trim(),
+                metode: document.getElementById('out-metode').value,
+                total: parseFloat(document.getElementById('out-total').value)
+            };
+
+            dataPengeluaran.unshift(item);
+            simpanKeStorage();
+            document.getElementById('form-pengeluaran').reset();
+            resetDates();
+            perbaruiTampilan();
+        }
+
+        function hapusPemasukan(id) {
+            dataPemasukan = dataPemasukan.filter(item => item.id !== id);
+            simpanKeStorage();
+            perbaruiTampilan();
+        }
+
+        function hapusPengeluaran(id) {
+            dataPengeluaran = dataPengeluaran.filter(item => item.id !== id);
+            simpanKeStorage();
+            perbaruiTampilan();
+        }
+
+        function changeReportMonth() {
+            const selectElem = document.getElementById('select-report-month');
+            selectedReportMonth = selectElem.value;
+            perbaruiRekapBulanan();
+        }
+
+        // Akumulasi bulanan
+        function getMonthlyAggregates() {
+            const monthsMap = {};
+
+            dataPemasukan.forEach(item => {
+                if (!item.tanggal) return;
+                const monthKey = item.tanggal.substring(0, 7); // YYYY-MM
+                if (!monthsMap[monthKey]) {
+                    monthsMap[monthKey] = {
+                        ongkirKotor: 0,
+                        komisi: 0,
+                        pengeluaran: 0
+                    };
+                }
+                monthsMap[monthKey].ongkirKotor += item.ongkir || 0;
+                monthsMap[monthKey].komisi += item.komisi || 0;
+            });
+
+            dataPengeluaran.forEach(item => {
+                if (!item.tanggal) return;
+                const monthKey = item.tanggal.substring(0, 7); // YYYY-MM
+                if (!monthsMap[monthKey]) {
+                    monthsMap[monthKey] = {
+                        ongkirKotor: 0,
+                        komisi: 0,
+                        pengeluaran: 0
+                    };
+                }
+                monthsMap[monthKey].pengeluaran += item.total || 0;
+            });
+
+            return monthsMap;
+        }
+
+        function perbaruiRekapBulanan() {
+            const monthlyData = getMonthlyAggregates();
+            const monthKeys = Object.keys(monthlyData).sort();
+
+            const selectElem = document.getElementById('select-report-month');
+            const tbodyRekap = document.getElementById('tabel-rekap-bulanan');
+
+            if (monthKeys.length === 0) {
+                const currentMonthKey = new Date().toISOString().substring(0, 7);
+                selectElem.innerHTML = `<option value="${currentMonthKey}">${formatBulanIndo(currentMonthKey)} (Belum ada data)</option>`;
+                tbodyRekap.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">Belum ada data transaksi bulanan</td></tr>`;
+                
+                document.getElementById('rpt-bersih').innerText = formatRupiah(0);
+                document.getElementById('rpt-ongkir-bersih').innerText = formatRupiah(0);
+                document.getElementById('rpt-komisi').innerText = formatRupiah(0);
+                document.getElementById('rpt-pengeluaran').innerText = formatRupiah(0);
+                return;
+            }
+
+            // Populate selector bulan
+            let selectHTML = '';
+            monthKeys.forEach(mKey => {
+                selectHTML += `<option value="${mKey}">${formatBulanIndo(mKey)}</option>`;
+            });
+            selectElem.innerHTML = selectHTML;
+
+            // Inisialisasi/pertahankan pilihan bulan
+            if (!selectedReportMonth || !monthsMapExists(monthlyData, selectedReportMonth)) {
+                selectedReportMonth = monthKeys[monthKeys.length - 1]; // Bulan terbaru
+            }
+            selectElem.value = selectedReportMonth;
+
+            // Render Kartu Statistik Bulan Terpilih
+            const activeMonthData = monthlyData[selectedReportMonth] || { ongkirKotor: 0, komisi: 0, pengeluaran: 0 };
+            const activeOngkirNet = activeMonthData.ongkirKotor - activeMonthData.komisi;
+            const activeBersih = activeOngkirNet - activeMonthData.pengeluaran;
+
+            document.getElementById('rpt-ongkir-bersih').innerText = formatRupiah(activeOngkirNet);
+            document.getElementById('rpt-komisi').innerText = formatRupiah(activeMonthData.komisi);
+            document.getElementById('rpt-pengeluaran').innerText = formatRupiah(activeMonthData.pengeluaran);
+            
+            const rptBersihElem = document.getElementById('rpt-bersih');
+            rptBersihElem.innerText = formatRupiah(activeBersih);
+            if (activeBersih < 0) {
+                rptBersihElem.className = "text-2xl font-black text-rose-600 tracking-tight";
+            } else {
+                rptBersihElem.className = "text-2xl font-black text-indigo-600 tracking-tight";
+            }
+
+            // Render Tabel Rekapitulasi Historis Per Bulan
+            tbodyRekap.innerHTML = '';
+            monthKeys.forEach(mKey => {
+                const mData = monthlyData[mKey];
+                const netOngkir = mData.ongkirKotor - mData.komisi;
+                const bersih = netOngkir - mData.pengeluaran;
+                const isSelected = mKey === selectedReportMonth;
+
+                tbodyRekap.innerHTML += `
+                    <tr class="${isSelected ? 'bg-indigo-50/70 font-semibold border-l-4 border-l-indigo-600' : 'hover:bg-slate-50'} transition">
+                        <td class="p-3 font-semibold text-slate-800 whitespace-nowrap">
+                            ${formatBulanIndo(mKey)}
+                            ${isSelected ? '<span class="ml-1.5 text-[9px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-full no-print">Terpilih</span>' : ''}
+                        </td>
+                        <td class="p-3 whitespace-nowrap">${formatRupiah(mData.ongkirKotor)}</td>
+                        <td class="p-3 text-amber-600 font-medium whitespace-nowrap">${formatRupiah(mData.komisi)}</td>
+                        <td class="p-3 text-emerald-600 font-bold whitespace-nowrap">${formatRupiah(netOngkir)}</td>
+                        <td class="p-3 text-rose-600 font-medium whitespace-nowrap">${formatRupiah(mData.pengeluaran)}</td>
+                        <td class="p-3 font-bold ${bersih < 0 ? 'text-rose-600' : 'text-indigo-600'} whitespace-nowrap">
+                            ${formatRupiah(bersih)}
+                        </td>
+                        <td class="p-3 text-center whitespace-nowrap">
+                            ${bersih >= 0 
+                                ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-up"></i> Surplus</span>' 
+                                : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-down"></i> Defisit</span>'}
+                        </td>
+                        <td class="p-3 text-center whitespace-nowrap no-print">
+                            <button onclick="exportCSVBulan('${mKey}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium rounded-lg shadow-sm transition inline-flex items-center gap-1" title="Export CSV Bulan ${formatBulanIndo(mKey)}">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function monthsMapExists(map, key) {
+            return Object.prototype.hasOwnProperty.call(map, key);
+        }
+
+        function perbaruiTampilan() {
+            const tbodyIn = document.querySelector('#tabel-pemasukan tbody');
+            const tbodyOut = document.querySelector('#tabel-pengeluaran tbody');
+
+            tbodyIn.innerHTML = '';
+            tbodyOut.innerHTML = '';
+
+            let totalOngkir = 0;
+            let totalKomisi = 0;
+            let ongkirCash = 0;
+            let ongkirDana = 0;
+
+            dataPemasukan.forEach(item => {
+                totalOngkir += item.ongkir;
+                totalKomisi += item.komisi;
+                if (item.metode === 'Cash') ongkirCash += item.ongkir;
+                if (item.metode === 'Dana') ongkirDana += item.ongkir;
+            });
+
+            let totalKeluar = 0;
+            let keluarCash = 0;
+            let keluarDana = 0;
+
+            dataPengeluaran.forEach(item => {
+                totalKeluar += item.total;
+                if (item.metode === 'Cash') keluarCash += item.total;
+                if (item.metode === 'Dana') keluarDana += item.total;
+            });
+
+            // RENDER TABEL PEMASUKAN
+            if (dataPemasukan.length === 0) {
+                tbodyIn.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">Belum ada data pemasukan. Silakan tambah transaksi di atas.</td></tr>`;
+            } else {
+                dataPemasukan.forEach(item => {
+                    const badgeClass = item.metode === 'Cash' 
+                        ? 'bg-amber-100 text-amber-800 border-amber-200' 
+                        : 'bg-sky-100 text-sky-800 border-sky-200';
+
+                    tbodyIn.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-2 font-medium text-slate-500 whitespace-nowrap">${item.tanggal}</td>
+                            <td class="p-2 font-semibold text-slate-700 whitespace-nowrap">${item.resi}</td>
+                            <td class="p-2">
+                                <div class="font-medium text-slate-800">${item.pengirim} &rarr; ${item.penerima}</div>
+                                <div class="text-[10px] text-slate-400"><i class="fa-solid fa-location-dot"></i> ${item.tujuan}</div>
+                            </td>
+                            <td class="p-2 whitespace-nowrap">
+                                <div class="font-bold text-slate-700">${formatRupiah(item.ongkir)}</div>
+                                <span class="inline-block text-[9px] px-1.5 py-0.2 rounded border font-semibold ${badgeClass}">${item.metode}</span>
+                            </td>
+                            <td class="p-2 font-medium text-amber-600 whitespace-nowrap">${formatRupiah(item.komisi)}</td>
+                            <td class="p-2 text-center no-print">
+                                <button onclick="hapusPemasukan(${item.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition" title="Hapus">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // RENDER TABEL PENGELUARAN
+            if (dataPengeluaran.length === 0) {
+                tbodyOut.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400">Belum ada data pengeluaran. Silakan tambah transaksi di atas.</td></tr>`;
+            } else {
+                dataPengeluaran.forEach(item => {
+                    const badgeClass = item.metode === 'Cash' 
+                        ? 'bg-amber-100 text-amber-800 border-amber-200' 
+                        : 'bg-sky-100 text-sky-800 border-sky-200';
+
+                    tbodyOut.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-2 font-medium text-slate-500 whitespace-nowrap">${item.tanggal}</td>
+                            <td class="p-2 font-medium text-slate-800">${item.keterangan}</td>
+                            <td class="p-2 whitespace-nowrap">
+                                <span class="inline-block text-[9px] px-1.5 py-0.2 rounded border font-semibold ${badgeClass}">${item.metode}</span>
+                            </td>
+                            <td class="p-2 font-bold text-rose-600 whitespace-nowrap">${formatRupiah(item.total)}</td>
+                            <td class="p-2 text-center no-print">
+                                <button onclick="hapusPengeluaran(${item.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition" title="Hapus">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Kalkulasi Dashboard Operasional Ringkasan
+            const ongkirSetelahKomisi = totalOngkir - totalKomisi;
+            const hasilBersihAkhir = ongkirSetelahKomisi - totalKeluar;
+
+            // Counter Badge
+            document.getElementById('pemasukan-count').innerText = `${dataPemasukan.length} Data`;
+            document.getElementById('pengeluaran-count').innerText = `${dataPengeluaran.length} Data`;
+
+            // Metrik Ringkasan Atas
+            document.getElementById('sum-ongkir').innerText = formatRupiah(totalOngkir);
+            document.getElementById('sum-ongkir-cash').innerText = formatRupiah(ongkirCash);
+            document.getElementById('sum-ongkir-dana').innerText = formatRupiah(ongkirDana);
+
+            document.getElementById('sum-komisi').innerText = formatRupiah(totalKomisi);
+            document.getElementById('sum-net-ongkir').innerText = formatRupiah(ongkirSetelahKomisi);
+
+            document.getElementById('sum-pengeluaran').innerText = formatRupiah(totalKeluar);
+            document.getElementById('sum-keluar-cash').innerText = formatRupiah(keluarCash);
+            document.getElementById('sum-keluar-dana').innerText = formatRupiah(keluarDana);
+
+            const sumAkhirElem = document.getElementById('sum-akhir');
+            sumAkhirElem.innerText = formatRupiah(hasilBersihAkhir);
+            if (hasilBersihAkhir < 0) {
+                sumAkhirElem.className = "text-xl sm:text-2xl font-black text-rose-400";
+            } else {
+                sumAkhirElem.className = "text-xl sm:text-2xl font-black text-emerald-300";
+            }
+
+            // Refresh Rekap Bulanan
+            perbaruiRekapBulanan();
+        }
+
+        // Export JSON (Seluruh Data)
+        function exportJSON() {
+            const data = {
+                pemasukan: dataPemasukan,
+                pengeluaran: dataPengeluaran
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pembukuan-ekspedisi-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Export CSV Keseluruhan
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            csvContent += "=== PEMASUKAN KESELURUHAN ===\n";
+            csvContent += "Tanggal,No Resi,Pengirim,Penerima,Tujuan,Metode,Ongkir,Komisi(5%)\n";
+            dataPemasukan.forEach(i => {
+                csvContent += `"${i.tanggal}","${i.resi}","${i.pengirim}","${i.penerima}","${i.tujuan}","${i.metode}",${i.ongkir},${i.komisi}\n`;
+            });
+
+            csvContent += "\n=== PENGELUARAN KESELURUHAN ===\n";
+            csvContent += "Tanggal,Keterangan,Metode,Total\n";
+            dataPengeluaran.forEach(i => {
+                csvContent += `"${i.tanggal}","${i.keterangan}","${i.metode}",${i.total}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `laporan-ekspedisi-semua-${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Export CSV Khusus Per Bulan
+        function exportCSVBulan(monthKey) {
+            if (!monthKey) return;
+
+            const filteredPemasukan = dataPemasukan.filter(item => item.tanggal && item.tanggal.startsWith(monthKey));
+            const filteredPengeluaran = dataPengeluaran.filter(item => item.tanggal && item.tanggal.startsWith(monthKey));
+
+            let totalOngkir = 0;
+            let totalKomisi = 0;
+            filteredPemasukan.forEach(i => {
+                totalOngkir += i.ongkir || 0;
+                totalKomisi += i.komisi || 0;
+            });
+
+            let totalPengeluaran = 0;
+            filteredPengeluaran.forEach(i => {
+                totalPengeluaran += i.total || 0;
+            });
+
+            const netOngkir = totalOngkir - totalKomisi;
+            const bersih = netOngkir - totalPengeluaran;
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Header Ringkasan Bulanan
+            csvContent += `=== LAPORAN REKAPITULASI BULAN ${formatBulanIndo(monthKey).toUpperCase()} ===\n`;
+            csvContent += `Total Ongkir Kotor,Rp ${totalOngkir.toLocaleString('id-ID')}\n`;
+            csvContent += `Total Komisi (5%),Rp ${totalKomisi.toLocaleString('id-ID')}\n`;
+            csvContent += `Ongkir Setelah Komisi,Rp ${netOngkir.toLocaleString('id-ID')}\n`;
+            csvContent += `Total Pengeluaran,Rp ${totalPengeluaran.toLocaleString('id-ID')}\n`;
+            csvContent += `Hasil Bersih Akhir,Rp ${bersih.toLocaleString('id-ID')}\n\n`;
+
+            // Detail Pemasukan
+            csvContent += `=== DATA PEMASUKAN BULAN ${formatBulanIndo(monthKey).toUpperCase()} ===\n`;
+            csvContent += "Tanggal,No Resi,Pengirim,Penerima,Tujuan,Metode,Ongkir,Komisi(5%)\n";
+            filteredPemasukan.forEach(i => {
+                csvContent += `"${i.tanggal}","${i.resi}","${i.pengirim}","${i.penerima}","${i.tujuan}","${i.metode}",${i.ongkir},${i.komisi}\n`;
+            });
+
+            // Detail Pengeluaran
+            csvContent += `\n=== DATA PENGELUARAN BULAN ${formatBulanIndo(monthKey).toUpperCase()} ===\n`;
+            csvContent += "Tanggal,Keterangan,Metode,Total\n";
+            filteredPengeluaran.forEach(i => {
+                csvContent += `"${i.tanggal}","${i.keterangan}","${i.metode}",${i.total}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `laporan-ekspedisi-${monthKey}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Export CSV untuk bulan yang aktif terpilih di dropdown
+        function exportCSVBulanIni() {
+            if (!selectedReportMonth) {
+                alert('Belum ada bulan yang dipilih atau tidak ada data transaksi!');
+                return;
+            }
+            exportCSVBulan(selectedReportMonth);
+        }
+
+        // Import JSON
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.pemasukan && data.pengeluaran) {
+                        dataPemasukan = data.pemasukan;
+                        dataPengeluaran = data.pengeluaran;
+                        simpanKeStorage();
+                        perbaruiTampilan();
+                    }
+                } catch (err) {
+                    alert('Format file JSON tidak valid!');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Reset semua data
+        function resetData() {
+            dataPemasukan = [];
+            dataPengeluaran = [];
+            simpanKeStorage();
+            perbaruiTampilan();
+        }
+
+        // Inisialisasi awal
+        resetDates();
+        perbaruiTampilan();
+    </script>
+</body>
+</html>
